@@ -3,88 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShortsUp PRO</title>
+    <title>ShortsUp PRO - Speed & Emoji</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/coi-serviceworker/0.1.7/coi-serviceworker.min.js"></script>
     <script src="https://unpkg.com/fabric@5.3.0/dist/fabric.min.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.min.js"></script>
     <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     <style>
-        :root { --primary: #007AFF; --bg: #0f0f0f; --card: #1e1e1e; }
+        :root { --primary: #FF00FF; --secondary: #00FFFF; --bg: #050505; --card: #151515; --yellow: #FFFF00; --green: #39FF14; }
         body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-        #editor-view { width: 320px; height: 568px; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
+        #editor-view { width: 320px; height: 568px; background: #000; border: 2px solid var(--primary); border-radius: 15px; overflow: hidden; box-shadow: 0 0 25px rgba(255, 0, 255, 0.4); position: relative; }
         .ui-container { width: 320px; margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
         .button-group { display: flex; gap: 10px; width: 100%; }
-        .button-group button { flex: 1; padding: 14px 5px; font-size: 13px; }
-        input, button { border-radius: 8px; border: none; outline: none; transition: 0.2s; }
-        input { background: var(--card); color: white; border: 1px solid #333; padding: 12px; }
-        button { background: var(--primary); color: white; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #444; cursor: not-allowed; }
-        #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card); padding: 25px; border-radius: 15px; width: 280px; display: flex; flex-direction: column; gap: 15px; }
-        #status-log { font-size: 12px; color: #aaa; text-align: center; margin-top: 10px; min-height: 35px; line-height: 1.4; }
+        .button-group button { flex: 1; padding: 14px 5px; font-size: 13px; border-radius: 10px; border: none; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        #btn-generate { background: var(--primary); color: white; }
+        #btn-export { background: var(--yellow); color: #000; }
+        #btn-export.complete { background: var(--green); color: black; }
+        input, select { background: var(--card); color: white; border: 1px solid #333; padding: 12px; border-radius: 10px; outline: none; font-size: 14px; }
+        .label-text { font-size: 11px; color: var(--secondary); font-weight: bold; margin-bottom: -5px; margin-left: 5px; }
+        #status-log { font-size: 12px; color: var(--secondary); text-align: center; margin-top: 10px; font-weight: bold; }
+        #settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--card); padding: 25px; border: 1px solid var(--secondary); border-radius: 15px; width: 280px; display: flex; flex-direction: column; gap: 15px; }
     </style>
 </head>
 <body>
-    <h2 style="margin-bottom: 10px;">ShortsUp PRO</h2>
+
+    <h2 style="margin-bottom: 15px; letter-spacing: -1px;">SHORTS UP <span style="color:var(--primary)">SPEED</span></h2>
     <div id="editor-view"><canvas id="main-canvas"></canvas></div>
+
     <div class="ui-container">
-        <input type="text" id="topic-input" placeholder="영상 주제를 입력하세요">
-        <div class="button-group">
-            <button id="btn-generate" onclick="handleGenerate()">1. 시나리오 기획</button>
-            <button id="btn-export" onclick="handleExport()" disabled>2. 생성 및 다운로드</button>
+        <input type="text" id="topic-input" placeholder="주제 입력 (예: 압구정 핫플 정복)">
+        
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                <span class="label-text">LANGUAGE</span>
+                <select id="lang-select">
+                    <option value="ko-KR" selected>한국어</option>
+                    <option value="en-US">English</option>
+                </select>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                <span class="label-text">SPEED</span>
+                <select id="speed-select">
+                    <option value="1.0">1.0x (Normal)</option>
+                    <option value="1.2">1.2x (Fast)</option>
+                    <option value="1.5">1.5x (Super)</option>
+                </select>
+            </div>
         </div>
-        <button style="background: #333; font-size: 12px; padding: 8px;" onclick="showSettings()">⚙️ API 보안 설정</button>
-        <div id="status-log">설정에서 API 키를 입력하세요.</div>
+        
+        <div class="button-group">
+            <button id="btn-generate" onclick="handleGenerate()">Scenario</button>
+            <button id="btn-export" onclick="handleExport()" disabled>Create Video</button>
+        </div>
+
+        <button style="background: transparent; color: var(--secondary); font-size: 11px; padding: 8px; border: 1px solid var(--secondary); border-radius: 5px; cursor: pointer;" onclick="showSettings()">⚙️ API CONFIG</button>
+        <div id="status-log">Pick your Speed & Vibe! ⚡</div>
     </div>
+
     <div id="settings-modal">
         <div class="modal-content">
-            <h3>API 보안 설정</h3>
+            <h3 style="color:var(--secondary)">API CONFIG</h3>
             <input type="password" id="key-gemini" placeholder="Gemini API Key">
             <input type="password" id="key-pexels" placeholder="Pexels API Key">
-            <button onclick="saveKeys()">설정 저장 및 닫기</button>
+            <button style="background:var(--secondary); color:black; padding:10px; border-radius:5px; border:none; font-weight:bold;" onclick="saveKeys()">SAVE & START</button>
         </div>
     </div>
+
     <script>
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
         let CONFIG = { GEMINI_KEY: "", PEXELS_KEY: "" };
         const canvas = new fabric.Canvas('main-canvas', { width: 320, height: 568, selection: false });
         let currentScript = null; let ffmpegInstance = null;
+
+        const BGM_LIST = {
+            upbeat: 'https://www.chosic.com/wp-content/uploads/2021/04/Corporate-Uplifting-Upbeat-Happy.mp3',
+            chill: 'https://www.chosic.com/wp-content/uploads/2021/07/Rain-and-Light-Rain-and-Light.mp3',
+            urban: 'https://www.chosic.com/wp-content/uploads/2020/07/Lofi-Study-Music.mp3'
+        };
+
         window.onload = () => {
-            const savedG = localStorage.getItem('sh_gemini'); const savedP = localStorage.getItem('sh_pexels');
+            const savedG = localStorage.getItem('sh_gemini');
+            const savedP = localStorage.getItem('sh_pexels');
             if(!savedG || !savedP) showSettings();
             else { CONFIG.GEMINI_KEY = savedG; CONFIG.PEXELS_KEY = savedP; }
         };
+
         function showSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
         function saveKeys() {
-            const g = document.getElementById('key-gemini').value; const p = document.getElementById('key-pexels').value;
-            if(!g || !p) return alert("두 키를 모두 입력해주세요.");
+            const g = document.getElementById('key-gemini').value; 
+            const p = document.getElementById('key-pexels').value;
             localStorage.setItem('sh_gemini', g); localStorage.setItem('sh_pexels', p);
             CONFIG.GEMINI_KEY = g; CONFIG.PEXELS_KEY = p;
-            document.getElementById('settings-modal').style.display = 'none'; log("✅ 설정 완료");
+            document.getElementById('settings-modal').style.display = 'none'; log("✅ VIBE READY");
         }
+
         async function handleGenerate() {
             const topic = document.getElementById('topic-input').value;
-            if(!topic) return alert("주제를 입력해주세요.");
-            toggleUI(true, "AI 시나리오 생성 중...");
+            if(!topic) return alert("주제를 적어줘! 🔥");
+            toggleUI(true, "AI가 힙한 스크립트 짜는 중... 📝");
             try {
-                const prompt = `주제 "${topic}"로 한국어 쇼츠 대본 작성. 15초 이내. JSON으로만 출력: {"total_duration":15, "scenes":[{"start":0, "end":15, "text":"자막", "visual_prompt":"ocean"}]}`;
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                const lang = document.getElementById('lang-select').value;
+                const prompt = `Create a high-energy Gen-Z shorts script for "${topic}" in ${lang}. 
+                Crucial: Add 2-3 trendy emojis to the 'text' field.
+                Output ONLY JSON: {"total_duration":10, "mood":"upbeat/chill/urban", "full_text":"script content", "scenes":[{"start":0, "end":10, "text":"TEXT WITH EMOJIS 🚀🔥", "visual_prompt":"vibrant style"}]}`;
+                
+                const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
-                if(!response.ok) throw new Error("API_ERROR");
-                const resData = await response.json();
-                const rawText = resData.candidates[0].content.parts[0].text;
-                currentScript = JSON.parse(rawText.match(/\{[\s\S]*\}/)[0]);
-                for (let scene of currentScript.scenes) { scene.imageUrl = await getStockImage(scene.visual_prompt); }
-                await drawPreview(0); log("✅ 기획 완료!");
+                const resData = await geminiResp.json();
+                currentScript = JSON.parse(resData.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
+
+                const pexelsResp = await fetch(`https://api.pexels.com/v1/search?query=${currentScript.scenes[0].visual_prompt}&per_page=1`, {
+                    headers: { Authorization: CONFIG.PEXELS_KEY }
+                });
+                const imgData = await pexelsResp.json();
+                currentScript.scenes[0].imageUrl = imgData.photos[0]?.src?.large2x || "";
+                
+                await drawPreview(0, false);
+                log("✅ Scenario Loaded! Let's Speed Up! ⚡");
                 document.getElementById('btn-export').disabled = false;
-            } catch (err) { log("❌ 오류: 키를 확인하세요."); } finally { toggleUI(false); }
+            } catch (err) { log("❌ API Error! Check Config."); } finally { toggleUI(false); }
         }
+
         async function handleExport() {
             if(!currentScript) return;
-            toggleUI(true, "영상 제작 중...");
+            const btn = document.getElementById('btn-export');
+            const speed = parseFloat(document.getElementById('speed-select').value);
+            btn.classList.remove('complete');
+            toggleUI(true, `Rendering at ${speed}x Speed... 🚀`);
+            
             try {
                 if(!ffmpegInstance) {
                     ffmpegInstance = new FFmpeg.FFmpeg();
@@ -93,38 +142,67 @@
                         wasmURL: await FFmpegUtil.toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm', 'application/wasm'),
                     });
                 }
-                const fps = 10; const totalFrames = Math.floor(currentScript.total_duration * fps);
-                for (let i = 0; i < totalFrames; i++) {
-                    await drawPreview(i / fps);
+
+                const lang = document.getElementById('lang-select').value.split('-')[0];
+                const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(currentScript.full_text)}&tl=${lang}&client=tw-ob`;
+                await ffmpegInstance.writeFile('voice.mp3', await FFmpegUtil.fetchFile(ttsUrl));
+                
+                const selectedBgm = BGM_LIST[currentScript.mood] || BGM_LIST.upbeat;
+                await ffmpegInstance.writeFile('bgm.mp3', await FFmpegUtil.fetchFile(selectedBgm));
+
+                const fps = 12;
+                for (let i = 0; i < currentScript.total_duration * fps; i++) {
+                    await drawPreview(i / fps, true);
                     const frameData = canvas.toDataURL('image/jpeg', 0.6);
                     await ffmpegInstance.writeFile(`f${i}.jpg`, await FFmpegUtil.fetchFile(frameData));
-                    await new Promise(r => setTimeout(r, 10));
                 }
-                await ffmpegInstance.exec(['-framerate', '10', '-i', 'f%d.jpg', '-c:v', 'libx264', '-preset', 'ultrafast', 'out.mp4']);
-                const data = await ffmpegInstance.readFile('out.mp4');
+
+                // 배속 조절 필터 설정: setpts(영상), atempo(음성)
+                const videoFilter = `setpts=${(1/speed).toFixed(3)}*PTS`;
+                const audioFilter = `atempo=${speed}`;
+
+                await ffmpegInstance.exec([
+                    '-framerate', '12', '-i', 'f%d.jpg',
+                    '-i', 'voice.mp3',
+                    '-i', 'bgm.mp3',
+                    '-filter_complex', 
+                    `[0:v]${videoFilter}[v_fast]; [1:a]volume=1.8[v_vol]; [2:a]volume=0.25[b_vol]; [v_vol][b_vol]amix=inputs=2:duration=first[a_mixed]; [a_mixed]${audioFilter}[a_fast]`,
+                    '-map', '[v_fast]', '-map', '[a_fast]',
+                    '-c:v', 'libx264', '-preset', 'ultrafast', '-shortest', 'final.mp4'
+                ]);
+
+                const data = await ffmpegInstance.readFile('final.mp4');
                 const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-                const a = document.createElement('a'); a.href = url; a.download = `shorts_${Date.now()}.mp4`; a.click();
-                log("✅ 생성 완료!");
-            } catch (err) { log("❌ 실패"); } finally { toggleUI(false); }
+                const a = document.createElement('a'); a.href = url; a.download = `ShortsUp_${speed}x_${Date.now()}.mp4`; a.click();
+                
+                btn.classList.add('complete');
+                log("✅ Speed Build Complete! ⚡");
+            } catch (err) { log("❌ Export Failed!"); console.error(err); }
+            finally { toggleUI(false); }
         }
-        async function drawPreview(time) {
+
+        async function drawPreview(time, animate) {
             canvas.clear(); const scene = currentScript.scenes[0];
             return new Promise(resolve => {
                 fabric.Image.fromURL(scene.imageUrl, (img) => {
                     const scale = Math.max(canvas.width/img.width, canvas.height/img.height);
                     img.set({ scaleX: scale, scaleY: scale, originX: 'center', originY: 'center', left: 160, top: 284, selectable: false });
                     canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
-                    canvas.add(new fabric.Textbox(scene.text, { width: 280, top: 400, left: 160, originX: 'center', textAlign: 'center', fill: '#fff', fontSize: 20, backgroundColor: 'rgba(0,0,0,0.6)', selectable: false }));
+                    
+                    const pulse = animate ? 1 + (Math.sin(time * 5) * 0.12) : 1;
+                    const txt = new fabric.Textbox(scene.text, { 
+                        width: 280, top: 400, left: 160, originX: 'center', textAlign: 'center', 
+                        fill: '#fff', fontSize: 26 * pulse, fontWeight: '900', 
+                        backgroundColor: 'rgba(255, 0, 255, 0.7)', 
+                        fontStyle: 'italic', padding: 15, cornerRadius: 10, selectable: false
+                    });
+                    canvas.add(txt);
                     resolve();
                 }, { crossOrigin: 'anonymous' });
             });
         }
-        async function getStockImage(q) {
-            const res = await fetch(`https://api.pexels.com/v1/search?query=${q}&per_page=1`, { headers: { Authorization: CONFIG.PEXELS_KEY } });
-            const data = await res.json(); return data.photos[0]?.src?.large2x || "";
-        }
         function toggleUI(l, m) { document.getElementById('btn-generate').disabled = l; if(m) log(m); }
-        function log(m) { document.getElementById('status-log').innerText = m; }
+        function log(m) { document.getElementById('status-log').innerHTML = m; }
     </script>
 </body>
 </html>
