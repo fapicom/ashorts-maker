@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Shorts Maker PRO (Clean Version)</title>
+    <title>AI Shorts Maker PRO - ShortsUp & PIX Up</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/coi-serviceworker/0.1.7/coi-serviceworker.min.js"></script>
     <script src="https://unpkg.com/fabric@5.3.0/dist/fabric.min.js"></script>
@@ -28,14 +28,14 @@
 </head>
 <body>
 
-    <h2 style="margin-bottom: 10px;">AI Shorts Maker</h2>
+    <h2 style="margin-bottom: 10px;">AI Shorts Maker PRO</h2>
     
     <div id="editor-view">
         <canvas id="main-canvas"></canvas>
     </div>
 
     <div class="ui-container">
-        <input type="text" id="topic-input" placeholder="주제를 입력하세요 (예: 푸들이 맛있는 음식을 먹는 법)">
+        <input type="text" id="topic-input" placeholder="주제를 입력하세요 (예: 푸들이 간식 먹는 법)">
         <select id="lang-select">
             <option value="ko-KR">한국어</option>
             <option value="en-US">English</option>
@@ -49,56 +49,63 @@
     </div>
 
     <script>
-        /**
-         * [필독] API 키 입력 위치
-         */
+        /*********************************************************
+         * ⚠️ [필독] 여기에 본인의 API 키를 입력하세요! ⚠️
+         *********************************************************/
         const CONFIG = {
-            GEMINI_KEY: " AIzaSyBhyoJb_G7okUhtly-EHNIcsSvC-w5BGJg",
-            PEXELS_KEY: "RoENgvlFuwNUfjxMbeMxUguWn8ENueJFWGDSj2kfHaBHok0xlnV7SyLT"
+            // 1. Gemini 키 (v1 API 사용 예정)
+            GEMINI_KEY: "AIzaSyBhyoJb_G7okUhtly-EHNIcsSvC-w5BGJg
+", 
+
+            // 2. Pexels 키
+            PEXELS_KEY: "RoENgvlFuwNUfjxMbeMxUguWn8ENueJFWGDSj2kfHaBHok0xlnV7SyLT
+"
         };
+        /*********************************************************/
 
         const canvas = new fabric.Canvas('main-canvas', { width: 360, height: 640 });
         let currentScript = null;
         let ffmpegInstance = null;
 
-        // --- 로직 1: 시나리오 생성 ---
+        // --- 기능 1: AI 시나리오 및 에셋 구성 ---
         async function handleGenerate() {
             const topic = document.getElementById('topic-input').value;
             if(!topic) return alert("주제를 입력해주세요.");
-            if(CONFIG.GEMINI_KEY.includes("발급받은")) return alert("API 키를 먼저 입력해주세요.");
+            if(CONFIG.GEMINI_KEY.includes("입력하세요")) return alert("API 키를 먼저 입력해주세요.");
 
             toggleUI(true, "AI가 시나리오를 구성하고 있습니다...");
 
             try {
-                // 1. Gemini 호출
                 const lang = document.getElementById('lang-select').value;
                 const prompt = `주제 "${topic}"로 ${lang} 쇼츠 대본 작성. 15~30초 이내. 
-                결과는 반드시 순수한 JSON 객체 하나만 출력해. 다른 설명은 금지.
-                형식: {"total_duration":초, "scenes":[{"start":초, "end":초, "text":"자막내용", "visual_prompt":"영문이미지검색어"}]}`;
+                결과는 반드시 순수한 JSON 객체 하나만 출력해. 다른 설명은 절대 금지.
+                형식: {"total_duration":초, "scenes":[{"start":초, "end":초, "text":"자막내용", "visual_prompt":"ocean"}]}`;
 
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
+                // v1beta 오류를 수정한 v1 API 주소 사용
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${CONFIG.GEMINI_KEY}`, {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
                 
                 const resData = await response.json();
-                if(!response.ok) throw new Error(resData.error?.message || "Gemini API 오류");
+                if(!response.ok) throw new Error(resData.error?.message || "API 연결 실패");
 
                 let rawText = resData.candidates[0].content.parts[0].text;
-                // JSON 추출 정규식 (잡설 제거)
-                const jsonStr = rawText.match(/\{[\s\S]*\}/)[0];
-                currentScript = JSON.parse(jsonStr);
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) throw new Error("JSON 데이터를 찾을 수 없습니다.");
+                
+                currentScript = JSON.parse(jsonMatch[0]);
 
-                log(`시나리오 완성! (${currentScript.total_duration}초) 이미지를 매칭하는 중...`);
+                log(`시나리오 완성! (${currentScript.total_duration}초) 이미지를 매칭 중...`);
 
-                // 2. 이미지 매칭 (Pexels)
+                // 이미지 검색 및 로드
                 for (let scene of currentScript.scenes) {
                     scene.imageUrl = await getStockImage(scene.visual_prompt);
                 }
 
-                // 3. 완료 처리
-                drawPreview(0);
-                log("기획 완료! 이제 '영상 생성'을 눌러주세요.");
+                await drawPreview(0);
+                log("기획 완료! '영상 생성' 버튼을 눌러주세요.");
                 document.getElementById('btn-export').disabled = false;
 
             } catch (err) {
@@ -109,7 +116,7 @@
             }
         }
 
-        // --- 로직 2: 영상 인코딩 및 시각화 ---
+        // --- 기능 2: 영상 렌더링 및 인코딩 ---
         async function handleExport() {
             if(!currentScript) return;
             toggleUI(true, "영상을 제작 중입니다. 창을 닫지 마세요.");
@@ -124,14 +131,14 @@
                     });
                 }
 
-                const fps = 12; // 최적 속도
+                const fps = 12; // 최적화된 프레임 속도
                 const totalFrames = Math.floor(currentScript.total_duration * fps);
 
                 for (let i = 0; i < totalFrames; i++) {
                     const time = i / fps;
                     await drawPreview(time);
                     
-                    // 화면 업데이트를 위한 지연 (시각화)
+                    // 실시간 생성 모습 표시를 위한 지연
                     await new Promise(r => setTimeout(r, 10)); 
 
                     const frameData = canvas.toDataURL('image/jpeg', 0.7);
@@ -158,6 +165,7 @@
                 log("성공! 영상이 다운로드되었습니다.");
             } catch (err) {
                 log(`<span class="error-text">제작 실패: ${err.message}</span>`);
+                console.error(err);
             } finally {
                 toggleUI(false);
                 setTimeout(() => document.getElementById('progress-wrap').style.display = 'none', 3000);
